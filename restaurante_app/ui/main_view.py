@@ -139,7 +139,10 @@ class MainView(tk.Frame):
         ).pack(anchor="w", pady=(0, 24))
 
         self.crear_boton_menu(frame_sidebar, "Inicio", self.mostrar_inicio, "inicio")
-        self.crear_boton_menu(frame_sidebar, "Usuarios", self.mostrar_usuarios, "usuarios")
+        if self.usuario_actual.rol == "Administrador":
+            self.crear_boton_menu(
+                frame_sidebar, "Usuarios", self.mostrar_usuarios, "usuarios"
+            )
         self.crear_boton_menu(frame_sidebar, "Productos", self.mostrar_productos, "productos")
         self.crear_boton_menu(frame_sidebar, "Ventas", self.mostrar_ventas, "ventas")
 
@@ -296,13 +299,15 @@ class MainView(tk.Frame):
         acciones.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(12, 0))
 
         botones = (
-            ("Registrar", self.registrar_usuario, "Accion.TButton"),
-            ("Actualizar", self.actualizar_usuario, "Accion.TButton"),
-            ("Eliminar", self.eliminar_usuario, "Eliminar.TButton"),
-            ("Limpiar", self.limpiar_formulario_usuario, "Secundario.TButton"),
+            ("Registrar", self.registrar_usuario, "Accion.TButton", "agregar"),
+            ("Actualizar", self.actualizar_usuario, "Accion.TButton", None),
+            ("Eliminar", self.eliminar_usuario, "Eliminar.TButton", None),
+            ("Limpiar", self.limpiar_formulario_usuario, "Secundario.TButton", None),
         )
-        for texto, comando, estilo in botones:
-            self.crear_boton(acciones, texto, comando, estilo).pack(fill="x", pady=(0, 7))
+        for texto, comando, estilo, icono in botones:
+            self.crear_boton(acciones, texto, comando, estilo, icono).pack(
+                fill="x", pady=(0, 7)
+            )
 
         # Treeview de usuarios (sin mostrar contraseña)
         listado = self.crear_listado(cuerpo, "Usuarios registrados", usar_grid=True)
@@ -314,8 +319,18 @@ class MainView(tk.Frame):
 
         # Eventos bind() (Semana 16)
         self.tabla_usuarios.bind("<<TreeviewSelect>>", self.al_seleccionar_usuario)
-        self.usuario_rol_combo.bind("<Return>", self.al_presionar_enter)
         self.usuario_rol_combo.bind("<<ComboboxSelected>>", self.al_seleccionar_rol)
+
+        # <Return> confirma el registro desde cualquier campo del formulario
+        # (bind local a cada widget, sin bind_all)
+        for widget in (
+            self.usuario_identificador_entry,
+            self.usuario_nombre_entry,
+            self.usuario_login_entry,
+            self.usuario_contrasena_entry,
+            self.usuario_rol_combo,
+        ):
+            widget.bind("<Return>", self.al_presionar_enter)
 
         for widget in (
             self.usuario_identificador_entry,
@@ -660,7 +675,7 @@ class MainView(tk.Frame):
             if not identificacion:
                 raise ValueError("Debe seleccionar un usuario de la tabla primero.")
             self.restaurante_servicio.actualizar_usuario(
-                identificacion, nombre, "", login, contrasena, rol, self.usuario_actual
+                identificacion, nombre, None, login, contrasena, rol, self.usuario_actual
             )
             self.limpiar_formulario_usuario()
             self.refrescar_usuarios()
@@ -691,8 +706,8 @@ class MainView(tk.Frame):
         except ValueError as error:
             messagebox.showerror("Usuarios", str(error))
 
-    def limpiar_formulario_usuario(self):
-        """Limpia el formulario y cancela la selección del Treeview."""
+    def limpiar_formulario_usuario(self, quitar_seleccion=True):
+        """Limpia el formulario y, por defecto, cancela la selección del Treeview."""
         if self.usuario_identificador_entry is not None:
             self.usuario_identificador_entry.delete(0, tk.END)
         if self.usuario_nombre_entry is not None:
@@ -706,13 +721,13 @@ class MainView(tk.Frame):
             self.usuario_rol_combo.configure(values=("Empleado", "Cliente"), state="readonly")
         if self.usuario_rol_estado is not None:
             self.usuario_rol_estado.config(text="Rol seleccionado: Cliente")
-        if self.tabla_usuarios is not None:
+        if quitar_seleccion and self.tabla_usuarios is not None:
             self.tabla_usuarios.selection_remove(self.tabla_usuarios.selection())
         self.usuario_identificador_seleccionado = None
 
     def cargar_usuario_en_formulario(self, usuario):
-        """Carga los datos de un usuario en el formulario."""
-        self.limpiar_formulario_usuario()
+        """Carga los datos de un usuario en el formulario (la fila sigue resaltada)."""
+        self.limpiar_formulario_usuario(quitar_seleccion=False)
         self.usuario_identificador_seleccionado = usuario.identificacion
         self.usuario_identificador_entry.insert(0, usuario.identificacion)
         self.usuario_nombre_entry.insert(0, usuario.nombre)
@@ -750,8 +765,9 @@ class MainView(tk.Frame):
         self.registrar_usuario()
 
     def al_presionar_escape(self, event):
-        """Callback del evento <Escape>."""
+        """Callback del evento <Escape>: vuelve la interfaz a su estado inicial."""
         self.limpiar_formulario_usuario()
+        self.usuario_identificador_entry.focus_set()
 
     def al_seleccionar_rol(self, event):
         """Callback del evento <<ComboboxSelected>>."""

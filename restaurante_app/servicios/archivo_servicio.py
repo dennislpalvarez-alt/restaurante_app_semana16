@@ -54,6 +54,10 @@ class ArchivoServicio:
     def leer_usuarios(self) -> list[dict]:
         return self._leer_json(self.ruta_usuarios)
 
+    def guardar_usuarios(self, usuarios: list[dict]) -> bool:
+        """Guarda la lista de usuarios en usuarios.json (Semana 16)."""
+        return self._guardar_json(self.ruta_usuarios, usuarios)
+
     # ---------------- VENTAS (Semana 15) ----------------
 
     def leer_ventas(self) -> list[dict]:

@@ -145,8 +145,23 @@ class RestauranteServicio:
         self.archivo_servicio.guardar_ventas(datos)
 
     # ====================================================================
-    # NUEVOS MÉTODOS PARA GESTIÓN DE USUARIOS (Semana 16)
+    # GESTIÓN DE USUARIOS (Semana 16)
     # ====================================================================
+
+    def buscar_usuario_por_login(self, login: str) -> Usuario | None:
+        """Busca un usuario por su nombre de usuario (el que se usa para entrar)."""
+        for usuario in self.usuarios:
+            if usuario.usuario == login.strip():
+                return usuario
+        return None
+
+    def validar_administrador(self, usuario_actual: Usuario | None, accion: str) -> None:
+        """Regla de acceso: solo el Administrador gestiona usuarios."""
+        if usuario_actual is None or usuario_actual.rol != "Administrador":
+            raise ValueError(f"Solo el Administrador puede {accion} usuarios.")
+
+    def usuario_tiene_ventas(self, identificacion: str) -> bool:
+        return any(v.usuario_id == identificacion for v in self.ventas)
 
     def registrar_usuario(
         self,
@@ -163,20 +178,14 @@ class RestauranteServicio:
         Reglas de negocio:
         - Solo el Administrador puede registrar usuarios.
         - No se permite crear nuevos Administradores desde la interfaz.
+        - No se repite la identificación ni el nombre de usuario (login).
         """
-        # Validar que el usuario actual sea Administrador
-        if usuario_actual is None or usuario_actual.rol != "Administrador":
-            raise ValueError("Solo el Administrador puede registrar usuarios.")
+        self.validar_administrador(usuario_actual, "registrar")
 
-        # Validar que no se pueda crear un nuevo Administrador
         if rol.strip() == "Administrador":
             raise ValueError(
                 "No se permite crear nuevos Administradores desde la interfaz."
             )
-
-        # Validar que no exista un usuario con la misma identificación
-        if self.buscar_usuario(identificacion) is not None:
-            raise ValueError("Ya existe un usuario con esa identificacion.")
 
         nuevo = Usuario(
             identificacion.strip(),
@@ -186,6 +195,12 @@ class RestauranteServicio:
             contrasena.strip(),
             rol.strip(),
         )
+
+        if self.buscar_usuario(nuevo.identificacion) is not None:
+            raise ValueError("Ya existe un usuario con esa identificacion.")
+        if self.buscar_usuario_por_login(nuevo.usuario) is not None:
+            raise ValueError("Ya existe un usuario con ese nombre de usuario.")
+
         self.usuarios.append(nuevo)
         self.guardar_usuarios()
         return nuevo
@@ -194,7 +209,7 @@ class RestauranteServicio:
         self,
         identificacion: str,
         nombre: str,
-        correo: str,
+        correo: str | None,
         usuario: str,
         contrasena: str,
         rol: str,
@@ -204,27 +219,45 @@ class RestauranteServicio:
         Actualiza un usuario existente.
         Reglas de negocio:
         - Solo el Administrador puede actualizar usuarios.
-        - No se permite cambiar el rol a Administrador.
+        - Nadie puede recibir el rol Administrador desde la interfaz; la cuenta
+          administradora existente sí puede editar sus datos conservando su rol.
+        - No se repite el nombre de usuario (login) de otra cuenta.
+        - Si correo es None se conserva el correo que ya tenía el usuario.
         """
-        # Validar que el usuario actual sea Administrador
-        if usuario_actual is None or usuario_actual.rol != "Administrador":
-            raise ValueError("Solo el Administrador puede actualizar usuarios.")
-
-        # Validar que no se pueda cambiar el rol a Administrador
-        if rol.strip() == "Administrador":
-            raise ValueError(
-                "No se permite asignar el rol de Administrador desde la interfaz."
-            )
+        self.validar_administrador(usuario_actual, "actualizar")
 
         usuario_obj = self.buscar_usuario(identificacion)
         if usuario_obj is None:
             raise ValueError("No existe un usuario con esa identificacion.")
 
-        usuario_obj.nombre = nombre.strip()
-        usuario_obj.correo = correo.strip()
-        usuario_obj.usuario = usuario.strip()
-        usuario_obj.contrasena = contrasena.strip()
-        usuario_obj.rol = rol.strip()
+        rol = rol.strip()
+        if usuario_obj.rol == "Administrador":
+            # La cuenta administradora no puede perder su rol.
+            if rol != "Administrador":
+                raise ValueError("No puede cambiar el rol de la cuenta Administrador.")
+        elif rol == "Administrador":
+            raise ValueError(
+                "No se permite asignar el rol de Administrador desde la interfaz."
+            )
+
+        # Se valida todo con un objeto temporal antes de modificar el real.
+        datos_validados = Usuario(
+            usuario_obj.identificacion,
+            nombre,
+            usuario_obj.correo if correo is None else correo,
+            usuario,
+            contrasena,
+            rol,
+        )
+        otro = self.buscar_usuario_por_login(datos_validados.usuario)
+        if otro is not None and otro.identificacion != usuario_obj.identificacion:
+            raise ValueError("Ya existe otro usuario con ese nombre de usuario.")
+
+        usuario_obj.nombre = datos_validados.nombre
+        usuario_obj.correo = datos_validados.correo
+        usuario_obj.usuario = datos_validados.usuario
+        usuario_obj.contrasena = datos_validados.contrasena
+        usuario_obj.rol = datos_validados.rol
         self.guardar_usuarios()
         return usuario_obj
 
@@ -236,19 +269,21 @@ class RestauranteServicio:
         Reglas de negocio:
         - Solo el Administrador puede eliminar usuarios.
         - No se permite eliminar la propia cuenta del Administrador autenticado.
+        - No se elimina un usuario que ya tiene ventas registradas.
         """
-        # Validar que el usuario actual sea Administrador
-        if usuario_actual is None or usuario_actual.rol != "Administrador":
-            raise ValueError("Solo el Administrador puede eliminar usuarios.")
+        self.validar_administrador(usuario_actual, "eliminar")
 
         usuario_obj = self.buscar_usuario(identificacion)
         if usuario_obj is None:
             raise ValueError("No existe un usuario con esa identificacion.")
 
-        # No permitir que el administrador se elimine a sí mismo
         if usuario_actual.identificacion == usuario_obj.identificacion:
+            raise ValueError("No puede eliminar su propia cuenta de Administrador.")
+        if usuario_obj.rol == "Administrador":
+            raise ValueError("No se puede eliminar una cuenta de Administrador.")
+        if self.usuario_tiene_ventas(usuario_obj.identificacion):
             raise ValueError(
-                "No puede eliminar su propia cuenta de Administrador."
+                "No se puede eliminar: el usuario tiene ventas registradas."
             )
 
         self.usuarios.remove(usuario_obj)

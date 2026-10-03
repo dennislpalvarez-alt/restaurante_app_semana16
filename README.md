@@ -1,39 +1,55 @@
 # Restaurante App — Semana 16
 
 ## Propósito
-Cuarta y última iteración del proyecto restaurante_app, evolucionando la interfaz gráfica construida con Tkinter. Esta semana se enfoca en el manejo explícito de eventos mediante bind(), aplicándolo al contexto de la gestión de usuarios. El objetivo es demostrar cómo una interfaz reactiva puede detectar diferentes formas de interacción (selección de fila, teclas, cambios de opción) sin trasladar la lógica de negocio hacia la vista.
+Cuarta iteración del proyecto **restaurante_app**, evolucionando la interfaz gráfica construida con **Tkinter**.
+Esta semana se enfoca en el **manejo explícito de eventos mediante `bind()`**, aplicado a la **gestión de usuarios** del restaurante. El objetivo es demostrar cómo una interfaz reactiva detecta diferentes interacciones (selección de una fila, teclas, cambio de opción) sin trasladar la lógica de negocio a la vista.
 
 ## Novedades — Semana 16
 
-### Evolución de la gestión de usuarios
-- Modelo Usuario actualizado: se incorpora el atributo rol con valores permitidos: Administrador, Empleado y Cliente.
-- Formulario mejorado: incluye campos de identificador, nombre, usuario, contraseña (oculta con show="*") y un Combobox para seleccionar el rol.
-- Treeview de consulta: muestra únicamente identificador, nombre, usuario y rol. No expone la contraseña por seguridad visual.
-- Control de acceso: solo el usuario con rol Administrador puede acceder a la gestión de usuarios.
+### Gestión de usuarios con roles
+- **Modelo `Usuario`**: incorpora el atributo `rol`, con los valores permitidos **Administrador**, **Empleado** y **Cliente**, persistido en `datos/usuarios.json`.
+- **CRUD completo** desde la interfaz: registrar, consultar, actualizar y eliminar usuarios.
+- **Formulario**: identificador, nombre, usuario, contraseña (oculta con `show="*"`) y un `ttk.Combobox` para el rol.
+- **Treeview**: muestra únicamente identificador, nombre, usuario y rol. La contraseña nunca aparece en la tabla.
+- **Control de acceso**: solo el Administrador ve y puede usar la sección **Usuarios**. Para un Empleado o un Cliente el botón no aparece en el menú lateral.
 
-### Manejo de eventos con bind()
-Se implementan cuatro eventos específicos, diferenciándolos del uso de command= en los botones:
+### Roles utilizados
+| Rol | Secciones del menú | Gestión de usuarios |
+|---|---|---|
+| Administrador | Inicio, Usuarios, Productos, Ventas | Sí: gestiona usuarios Empleado y Cliente |
+| Empleado | Inicio, Productos, Ventas | No |
+| Cliente | Inicio, Productos, Ventas | No |
 
-- <<TreeviewSelect>> en Treeview de usuarios: Carga automáticamente el usuario seleccionado en el formulario
-- <Return> en Combobox de rol: Confirma el registro del usuario (atajo de teclado)
-- <Escape> en formulario completo: Limpia el formulario y cancela la selección
-- <<ComboboxSelected>> en Combobox de rol: Actualiza la etiqueta de estado al cambiar el rol
+### Manejo de eventos: `command=` y `bind()`
+- **`command=`** asocia la *acción principal* de un botón con un método. El callback no recibe el objeto `event`. Se mantiene en **Registrar, Actualizar, Eliminar y Limpiar**.
+- **`bind()`** asocia un *evento específico* de un widget con un callback, que recibe el objeto `event`. Todos los bindings son **locales** a su widget; no se usa `bind_all()`.
 
-### Reutilización de command=
-Los botones principales (Registrar, Actualizar, Eliminar, Limpiar) mantienen su asociación mediante command=, conservando el mecanismo trabajado en la Semana 15 y permitiendo comparar ambos enfoques.
+| Evento | Widget | Callback | Respuesta |
+|---|---|---|---|
+| `<<TreeviewSelect>>` | Treeview de usuarios | `al_seleccionar_usuario(event)` | Obtiene el identificador, consulta el usuario en `RestauranteServicio` y lo carga en el formulario (la fila queda resaltada) |
+| `<Return>` | Campos del formulario y Combobox de rol | `al_presionar_enter(event)` | Reutiliza `registrar_usuario()`, el mismo método del botón Registrar |
+| `<Escape>` | Campos del formulario, Combobox y Treeview | `al_presionar_escape(event)` | Limpia el formulario, cancela la selección y devuelve el foco al primer campo |
+| `<<ComboboxSelected>>` | Combobox de rol | `al_seleccionar_rol(event)` | Actualiza la etiqueta "Rol seleccionado: ..." |
 
-### Reglas de negocio en el servicio
-- Solo el Administrador puede gestionar usuarios.
-- Se pueden crear usuarios tipo Empleado y Cliente.
+Los callbacks **no duplican lógica**: el atajo `<Return>` y el botón Registrar ejecutan el mismo método. El callback coordina (lee la interfaz, llama al servicio, refresca la tabla, muestra el resultado) y no contiene reglas de negocio.
+
+### Reglas de negocio (en `RestauranteServicio`)
+- Solo el Administrador puede registrar, actualizar y eliminar usuarios.
 - No se permite crear nuevos Administradores desde la interfaz.
-- El administrador autenticado no puede eliminar su propia cuenta.
-- Todas las validaciones y la persistencia se delegan a RestauranteServicio.
+- No se repiten la identificación ni el nombre de usuario (login).
+- El Administrador puede editar su propia cuenta, pero no puede cambiar su rol.
+- El Administrador autenticado no puede eliminar su propia cuenta.
+- No se elimina un usuario que ya tiene ventas registradas, para no dejar ventas huérfanas.
+- Al actualizar un usuario se conserva el correo que ya tenía.
+- La interfaz nunca lee ni escribe los archivos JSON directamente.
 
-### Recursos visuales
-- Se conserva la carpeta assets/ con el logotipo del sistema (logo.png) e iconos para la interfaz (icon_inicio.png, icon_usuarios.png, icon_productos.png, icon_ventas.png, icon_agregar.png, icon_salir.png).
+### Recursos visuales (`assets/`)
+- `assets/logo/logo.png`: logotipo del sistema, cargado como ícono de la ventana.
+- `assets/icons/`: íconos de la interfaz (`icon_inicio`, `icon_usuarios`, `icon_productos`, `icon_ventas`, `icon_agregar`, `icon_salir`), usados en el menú lateral y en los botones de acción.
 
 ## Estructura del proyecto
 
+```text
 restaurante_app_semana16/
 ├── restaurante_app/
 │   ├── assets/
@@ -65,69 +81,77 @@ restaurante_app_semana16/
 │   │   └── main_view.py
 │   └── main.py
 └── README.md
+```
 
 ## Responsabilidades por capa
 
-- modelos/usuario.py: representa la entidad Usuario, incorporando el atributo rol con validación contra ROLES_PERMITIDOS.
-- servicios/restaurante_servicio.py: concentra las reglas de negocio, valida el rol del usuario autenticado, impide crear nuevos Administradores y bloquea la auto-eliminación. Gestiona la persistencia en usuarios.json.
-- ui/main_view.py: construye las vistas con Tkinter, asocia eventos mediante bind() y botones mediante command=. Coordina la interacción sin manipular directamente los archivos JSON.
-- main.py: crea la ventana principal Tk(), configura el ícono desde assets/logo/logo.png y controla el cambio entre LoginView y MainView.
+- **`modelos/usuario.py`**: entidad `Usuario` con el atributo `rol`, validado contra los roles permitidos.
+- **`servicios/archivo_servicio.py`**: lee y guarda los archivos JSON de productos, usuarios y ventas, sin lógica de negocio.
+- **`servicios/restaurante_servicio.py`**: concentra las reglas de negocio de usuarios, productos y ventas, y gestiona la persistencia.
+- **`ui/main_view.py`**: construye las vistas con Tkinter, asocia eventos con `bind()` y botones con `command=`, y coordina la interacción sin tocar el JSON.
+- **`main.py`**: crea la ventana `Tk()`, configura el ícono desde `assets/logo/logo.png` y alterna entre `LoginView` y `MainView`.
 
 ## Flujo de la aplicación y manejo de eventos
 
+```text
 Inicio de la aplicación
         |
 main.py prepara Tkinter, carga el icono y los servicios
         |
-   LoginView (validación de acceso)
+LoginView (validación de acceso con RestauranteServicio)
         |
-    MainView (menú lateral)
+MainView (menú lateral según el rol)
         |
-Navegación: Inicio | Usuarios (solo Admin) | Productos (CRUD) | Ventas
+Inicio | Usuarios (solo Administrador) | Productos | Ventas
         |
---- FLUJO DE EVENTOS EN USUARIOS (Semana 16) ---
-1. Administrador accede a la sección "Usuarios"
-2. Selecciona una fila en el Treeview
-3. Evento <<TreeviewSelect>> activa callback al_seleccionar_usuario()
-4. Callback obtiene el identificador y consulta RestauranteServicio
-5. Los datos se cargan automáticamente en el formulario
-6. El usuario modifica un campo y presiona "Actualizar" (command=)
+--- EVENTOS EN LA SECCIÓN USUARIOS ---
+Treeview  -> <<TreeviewSelect>> -> bind() -> callback(event)
+          -> obtiene el identificador -> RestauranteServicio busca el usuario
+          -> la interfaz carga el formulario
+
+Teclado   -> <Return>           -> bind() -> callback(event) -> registrar_usuario()
+Teclado   -> <Escape>           -> bind() -> callback(event) -> limpiar formulario y selección
+Combobox  -> <<ComboboxSelected>> -> bind() -> callback(event) -> responde al cambio de rol
+Botones   -> command= -> callback -> Registrar / Actualizar / Eliminar / Limpiar
         |
---- ATAJOS DE TECLADO ---
-• <Return> en el Combobox de rol → ejecuta registrar_usuario()
-• <Escape> en cualquier campo → limpia formulario y cancela selección
+RestauranteServicio valida y guarda en usuarios.json
         |
---- CAMBIO DE ROL ---
-• <<ComboboxSelected>> → actualiza la etiqueta "Rol seleccionado: ..."
----------------------------------
+Actualización del Treeview y respuesta visual (messagebox)
         |
-   Cerrar sesión
-        |
-   LoginView
+Cerrar sesión -> LoginView
+```
 
 ## Cómo ejecutar
 
-1. Ubicarse dentro de la carpeta restaurante_app:
-   cd restaurante_app
+1. Ubicarse dentro de la carpeta `restaurante_app`:
+
+```bash
+cd restaurante_app
+```
 
 2. Ejecutar el punto de entrada:
-   python main.py
 
-3. Iniciar sesión con el usuario administrador cargado en datos/usuarios.json:
-   - Usuario: jperez
-   - Contraseña: 1234
+```bash
+python main.py
+```
 
-4. Navegar al menú lateral "Usuarios" para probar la gestión con eventos.
+3. Iniciar sesión con alguno de los usuarios cargados en `datos/usuarios.json`:
 
-5. Cerrar y volver a abrir la aplicación para verificar que los usuarios se recuperan correctamente desde usuarios.json.
+| Rol | Usuario | Contraseña |
+|---|---|---|
+| Administrador | `jperez` | `1234` |
+| Empleado | `cmesero` | `emp123` |
+| Cliente | `lcliente` | `cli123` |
+
+4. Con el Administrador, abrir **Usuarios** en el menú lateral y probar: seleccionar una fila, registrar con el botón o con **Enter**, limpiar con **Escape**, cambiar el rol, actualizar y eliminar.
+5. Entrar con el Empleado o el Cliente y comprobar que el menú **no muestra** la sección Usuarios.
+6. Cerrar y volver a abrir la aplicación para verificar que los usuarios se recuperan desde `usuarios.json`.
 
 ## Requisitos técnicos
-
-- Python 3.8 o superior
+- Python 3.10 o superior (el código usa anotaciones como `Usuario | None`)
 - Tkinter (incluido con la instalación estándar de Python)
 
 ## Referencias
-
 Estructura y flujo adaptados y evolucionados de los proyectos docentes Biblioteca App:
 - Semana 13: https://github.com/kevin10lascano-sketch/Clase-Semana-13-POO.git
 - Semana 14: https://github.com/kevin10lascano-sketch/Clase-Semana-14-POO.git
@@ -136,5 +160,4 @@ Estructura y flujo adaptados y evolucionados de los proyectos docentes Bibliotec
 - Semana 16.1 (Explorador de eventos): https://github.com/kevin10lascano-sketch/Clase-Semana-16.1-POO.git
 
 ## Autor
-
 Dennis Leonardo Pacheco Álvarez — Proyecto académico de Programación Orientada a Objetos.

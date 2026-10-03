@@ -6,5 +6,21 @@
         "usuario": "jperez",
         "contrasena": "1234",
         "rol": "Administrador"
+    },
+    {
+        "identificacion": "3011",
+        "nombre": "CARLOS MESERO",
+        "correo": "carlos@restaurante.com",
+        "usuario": "cmesero",
+        "contrasena": "emp123",
+        "rol": "Empleado"
+    },
+    {
+        "identificacion": "3012",
+        "nombre": "LAURA CLIENTE",
+        "correo": "laura@correo.com",
+        "usuario": "lcliente",
+        "contrasena": "cli123",
+        "rol": "Cliente"
     }
 ]
