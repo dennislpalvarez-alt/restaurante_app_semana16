@@ -5,29 +5,20 @@ from modelos.venta import Venta
 
 
 class RestauranteServicio:
-    """
-    Convierte los datos cargados en objetos, valida el acceso y
-    concentra las reglas de negocio y persistencia de productos y ventas.
-    La interfaz nunca valida ni escribe JSON por su cuenta.
-    """
-
     def __init__(self, archivo_servicio) -> None:
         self.archivo_servicio = archivo_servicio
         self.productos: list[Producto] = []
         self.usuarios: list[Usuario] = []
-        self.ventas: list[Venta] = []  # Semana 15: lista de ventas en memoria
+        self.ventas: list[Venta] = []
         self.cargar_datos()
 
     def cargar_datos(self) -> None:
-        """Carga los datos persistidos y los convierte en objetos."""
         productos_json = self.archivo_servicio.leer_productos()
         usuarios_json = self.archivo_servicio.leer_usuarios()
-        ventas_json = self.archivo_servicio.leer_ventas()  # Semana 15
+        ventas_json = self.archivo_servicio.leer_ventas()
 
         self.productos = [Producto.desde_diccionario(d) for d in productos_json]
         self.usuarios = [Usuario.desde_diccionario(d) for d in usuarios_json]
-
-        # Semana 15: carga las ventas persistidas para mostrarlas en la interfaz
         self.ventas = [
             Venta(
                 d.get("identificador", ""),
@@ -39,13 +30,10 @@ class RestauranteServicio:
         ]
 
     def validar_acceso(self, usuario: str, contrasena: str) -> Usuario | None:
-        """Verifica si las credenciales coinciden con un usuario cargado."""
         for u in self.usuarios:
             if u.usuario == usuario and u.contrasena == contrasena:
                 return u
         return None
-
-    # ---------------- CONSULTAS GENERALES ----------------
 
     def listar_productos(self) -> list[Producto]:
         return self.productos
@@ -53,8 +41,7 @@ class RestauranteServicio:
     def listar_usuarios(self) -> list[Usuario]:
         return self.usuarios
 
-    def listar_ventas(self) -> list[Venta]:  # Semana 15
-        """Entrega las ventas cargadas para mostrarlas en la interfaz."""
+    def listar_ventas(self) -> list[Venta]:
         return self.ventas
 
     def cantidad_productos(self) -> int:
@@ -63,40 +50,32 @@ class RestauranteServicio:
     def cantidad_usuarios(self) -> int:
         return len(self.usuarios)
 
-    def cantidad_ventas(self) -> int:  # Semana 15
+    def cantidad_ventas(self) -> int:
         return len(self.ventas)
 
-    # ---------------- BÚSQUEDAS ----------------
-
     def buscar_producto(self, codigo: str) -> Producto | None:
-        codigo = codigo.strip()
         for producto in self.productos:
-            if producto.codigo == codigo:
+            if producto.codigo == codigo.strip():
                 return producto
         return None
 
     def buscar_usuario(self, identificacion: str) -> Usuario | None:
-        """Busca un usuario por su identificación (necesario para validar la venta)."""
-        identificacion = identificacion.strip()
         for usuario in self.usuarios:
-            if usuario.identificacion == identificacion:
+            if usuario.identificacion == identificacion.strip():
                 return usuario
         return None
-
-    # ---------------- CRUD DE PRODUCTOS (Semana 14) ----------------
 
     def registrar_producto(
         self, codigo: str, nombre: str, categoria: str, precio: str, stock: str
     ) -> Producto:
         if self.buscar_producto(codigo) is not None:
             raise ValueError("Ya existe un producto con ese codigo.")
-
         nuevo = Producto(
-            codigo=codigo.strip(),
-            nombre=nombre.strip(),
-            categoria=categoria.strip(),
-            precio=self._a_float(precio),
-            stock=self._a_int(stock),
+            codigo.strip(),
+            nombre.strip(),
+            categoria.strip(),
+            self._a_float(precio),
+            self._a_int(stock),
         )
         self.productos.append(nuevo)
         self.guardar_productos()
@@ -108,18 +87,10 @@ class RestauranteServicio:
         producto = self.buscar_producto(codigo)
         if producto is None:
             raise ValueError("No existe un producto con ese codigo.")
-
-        datos_validados = Producto(
-            codigo=codigo.strip(),
-            nombre=nombre.strip(),
-            categoria=categoria.strip(),
-            precio=self._a_float(precio),
-            stock=self._a_int(stock),
-        )
-        producto.nombre = datos_validados.nombre
-        producto.categoria = datos_validados.categoria
-        producto.precio = datos_validados.precio
-        producto.stock = datos_validados.stock
+        producto.nombre = nombre.strip()
+        producto.categoria = categoria.strip()
+        producto.precio = self._a_float(precio)
+        producto.stock = self._a_int(stock)
         self.guardar_productos()
         return producto
 
@@ -127,31 +98,21 @@ class RestauranteServicio:
         producto = self.buscar_producto(codigo)
         if producto is None:
             raise ValueError("No existe un producto con ese codigo.")
-
         self.productos.remove(producto)
         self.guardar_productos()
         return producto
 
     def guardar_productos(self) -> None:
         self.archivo_servicio.guardar_productos(
-            [producto.a_diccionario() for producto in self.productos]
+            [p.a_diccionario() for p in self.productos]
         )
 
-    # ---------------- VENTAS (Semana 15) ----------------
-
     def generar_identificador_venta(self) -> str:
-        """Genera un identificador único para la venta (V001, V002...)."""
-        siguiente = len(self.ventas) + 1
-        return f"V{siguiente:03d}"
+        return f"V{len(self.ventas) + 1:03d}"
 
     def registrar_venta(self, usuario_id: str, producto_codigo: str) -> Venta:
-        """
-        Registra una venta. Valida que el usuario y el producto existan
-        antes de crear el objeto Venta y persistirlo.
-        """
         usuario_id = usuario_id.strip()
         producto_codigo = producto_codigo.strip()
-
         if not usuario_id:
             raise ValueError("Debe seleccionar un usuario.")
         if not producto_codigo:
@@ -172,7 +133,6 @@ class RestauranteServicio:
         return nueva_venta
 
     def guardar_ventas(self) -> None:
-        """Guarda la colección de ventas en el archivo JSON."""
         datos = [
             {
                 "identificador": v.identificador,
@@ -184,7 +144,121 @@ class RestauranteServicio:
         ]
         self.archivo_servicio.guardar_ventas(datos)
 
-    # ---------------- AUXILIARES ----------------
+    # ====================================================================
+    # NUEVOS MÉTODOS PARA GESTIÓN DE USUARIOS (Semana 16)
+    # ====================================================================
+
+    def registrar_usuario(
+        self,
+        identificacion: str,
+        nombre: str,
+        correo: str,
+        usuario: str,
+        contrasena: str,
+        rol: str,
+        usuario_actual: Usuario | None = None,
+    ) -> Usuario:
+        """
+        Registra un nuevo usuario.
+        Reglas de negocio:
+        - Solo el Administrador puede registrar usuarios.
+        - No se permite crear nuevos Administradores desde la interfaz.
+        """
+        # Validar que el usuario actual sea Administrador
+        if usuario_actual is None or usuario_actual.rol != "Administrador":
+            raise ValueError("Solo el Administrador puede registrar usuarios.")
+
+        # Validar que no se pueda crear un nuevo Administrador
+        if rol.strip() == "Administrador":
+            raise ValueError(
+                "No se permite crear nuevos Administradores desde la interfaz."
+            )
+
+        # Validar que no exista un usuario con la misma identificación
+        if self.buscar_usuario(identificacion) is not None:
+            raise ValueError("Ya existe un usuario con esa identificacion.")
+
+        nuevo = Usuario(
+            identificacion.strip(),
+            nombre.strip(),
+            correo.strip(),
+            usuario.strip(),
+            contrasena.strip(),
+            rol.strip(),
+        )
+        self.usuarios.append(nuevo)
+        self.guardar_usuarios()
+        return nuevo
+
+    def actualizar_usuario(
+        self,
+        identificacion: str,
+        nombre: str,
+        correo: str,
+        usuario: str,
+        contrasena: str,
+        rol: str,
+        usuario_actual: Usuario | None = None,
+    ) -> Usuario:
+        """
+        Actualiza un usuario existente.
+        Reglas de negocio:
+        - Solo el Administrador puede actualizar usuarios.
+        - No se permite cambiar el rol a Administrador.
+        """
+        # Validar que el usuario actual sea Administrador
+        if usuario_actual is None or usuario_actual.rol != "Administrador":
+            raise ValueError("Solo el Administrador puede actualizar usuarios.")
+
+        # Validar que no se pueda cambiar el rol a Administrador
+        if rol.strip() == "Administrador":
+            raise ValueError(
+                "No se permite asignar el rol de Administrador desde la interfaz."
+            )
+
+        usuario_obj = self.buscar_usuario(identificacion)
+        if usuario_obj is None:
+            raise ValueError("No existe un usuario con esa identificacion.")
+
+        usuario_obj.nombre = nombre.strip()
+        usuario_obj.correo = correo.strip()
+        usuario_obj.usuario = usuario.strip()
+        usuario_obj.contrasena = contrasena.strip()
+        usuario_obj.rol = rol.strip()
+        self.guardar_usuarios()
+        return usuario_obj
+
+    def eliminar_usuario(
+        self, identificacion: str, usuario_actual: Usuario | None = None
+    ) -> Usuario:
+        """
+        Elimina un usuario.
+        Reglas de negocio:
+        - Solo el Administrador puede eliminar usuarios.
+        - No se permite eliminar la propia cuenta del Administrador autenticado.
+        """
+        # Validar que el usuario actual sea Administrador
+        if usuario_actual is None or usuario_actual.rol != "Administrador":
+            raise ValueError("Solo el Administrador puede eliminar usuarios.")
+
+        usuario_obj = self.buscar_usuario(identificacion)
+        if usuario_obj is None:
+            raise ValueError("No existe un usuario con esa identificacion.")
+
+        # No permitir que el administrador se elimine a sí mismo
+        if usuario_actual.identificacion == usuario_obj.identificacion:
+            raise ValueError(
+                "No puede eliminar su propia cuenta de Administrador."
+            )
+
+        self.usuarios.remove(usuario_obj)
+        self.guardar_usuarios()
+        return usuario_obj
+
+    def guardar_usuarios(self) -> None:
+        self.archivo_servicio.guardar_usuarios(
+            [u.a_diccionario() for u in self.usuarios]
+        )
 
     @staticmethod
     def _a_float(valor: str) -> float:

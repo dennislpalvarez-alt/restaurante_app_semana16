@@ -1,46 +1,55 @@
-# Restaurante App — Semana 15
+# Restaurante App — Semana 16
 
 ## Propósito
-Tercera iteración del proyecto **restaurante_app**, evolucionando la interfaz gráfica construida con **Tkinter**.
-Esta semana se enfoca en los **conceptos fundamentales de manejo de eventos**, incorporando una nueva sección de **Ventas** que relaciona un usuario con un producto, utilizando el flujo: acción del usuario → `command=` → callback → servicio → persistencia → respuesta visual.
+Cuarta y última iteración del proyecto restaurante_app, evolucionando la interfaz gráfica construida con Tkinter. Esta semana se enfoca en el manejo explícito de eventos mediante bind(), aplicándolo al contexto de la gestión de usuarios. El objetivo es demostrar cómo una interfaz reactiva puede detectar diferentes formas de interacción (selección de fila, teclas, cambios de opción) sin trasladar la lógica de negocio hacia la vista.
 
-## Novedades — Semana 15
+## Novedades — Semana 16
 
-### Fundamentos de manejo de eventos
-- Vinculación de botones con callbacks mediante `command=` (pasando la referencia de la función, sin paréntesis).
-- El callback coordina la interacción: obtiene datos de la interfaz, delega la lógica al servicio, actualiza la vista y comunica el resultado al usuario.
-- Separación estricta de responsabilidades: la interfaz no manipula directamente los archivos JSON ni contiene reglas de negocio.
+### Evolución de la gestión de usuarios
+- Modelo Usuario actualizado: se incorpora el atributo rol con valores permitidos: Administrador, Empleado y Cliente.
+- Formulario mejorado: incluye campos de identificador, nombre, usuario, contraseña (oculta con show="*") y un Combobox para seleccionar el rol.
+- Treeview de consulta: muestra únicamente identificador, nombre, usuario y rol. No expone la contraseña por seguridad visual.
+- Control de acceso: solo el usuario con rol Administrador puede acceder a la gestión de usuarios.
 
-### Nueva sección: Gestión de Ventas
-- **Selección de usuario**: mediante `ttk.Combobox` (solo lectura) que muestra identificación y nombre.
-- **Selección de producto**: mediante `ttk.Combobox` (solo lectura) que muestra código y nombre.
-- **Registro de venta**: botón "Registrar venta" que ejecuta el callback, valida la existencia de los elementos y delega a `RestauranteServicio`.
-- **Visualización**: tabla `ttk.Treeview` que muestra las ventas registradas (ID, Usuario, Producto, Fecha).
-- **Persistencia**: almacenamiento automático en `datos/ventas.json`.
+### Manejo de eventos con bind()
+Se implementan cuatro eventos específicos, diferenciándolos del uso de command= en los botones:
 
-### Recursos visuales obligatorios
-- Carpeta `assets/logo/` con el logotipo del sistema (`logo.png`), cargado como ícono de la ventana principal.
-- Carpeta `assets/icons/` con 6 íconos (`icon_inicio`, `icon_usuarios`, `icon_productos`, `icon_ventas`, `icon_agregar`, `icon_salir`) integrados en los botones del menú lateral, en "Cerrar sesión" y en "Registrar venta".
+- <<TreeviewSelect>> en Treeview de usuarios: Carga automáticamente el usuario seleccionado en el formulario
+- <Return> en Combobox de rol: Confirma el registro del usuario (atajo de teclado)
+- <Escape> en formulario completo: Limpia el formulario y cancela la selección
+- <<ComboboxSelected>> en Combobox de rol: Actualiza la etiqueta de estado al cambiar el rol
+
+### Reutilización de command=
+Los botones principales (Registrar, Actualizar, Eliminar, Limpiar) mantienen su asociación mediante command=, conservando el mecanismo trabajado en la Semana 15 y permitiendo comparar ambos enfoques.
+
+### Reglas de negocio en el servicio
+- Solo el Administrador puede gestionar usuarios.
+- Se pueden crear usuarios tipo Empleado y Cliente.
+- No se permite crear nuevos Administradores desde la interfaz.
+- El administrador autenticado no puede eliminar su propia cuenta.
+- Todas las validaciones y la persistencia se delegan a RestauranteServicio.
+
+### Recursos visuales
+- Se conserva la carpeta assets/ con el logotipo del sistema (logo.png) e iconos para la interfaz (icon_inicio.png, icon_usuarios.png, icon_productos.png, icon_ventas.png, icon_agregar.png, icon_salir.png).
 
 ## Estructura del proyecto
 
-```text
-restaurante_app_semana15/
+restaurante_app_semana16/
 ├── restaurante_app/
 │   ├── assets/
-│   │   ├── logo/
-│   │   │   └── logo.png
-│   │   └── icons/
-│   │       ├── icon_inicio.png
-│   │       ├── icon_usuarios.png
-│   │       ├── icon_productos.png
-│   │       ├── icon_ventas.png
-│   │       ├── icon_agregar.png
-│   │       └── icon_salir.png
+│   │   ├── icons/
+│   │   │   ├── icon_inicio.png
+│   │   │   ├── icon_usuarios.png
+│   │   │   ├── icon_productos.png
+│   │   │   ├── icon_ventas.png
+│   │   │   ├── icon_agregar.png
+│   │   │   └── icon_salir.png
+│   │   └── logo/
+│   │       └── logo.png
 │   ├── datos/
 │   │   ├── productos.json
 │   │   ├── usuarios.json
-│   │   └── ventas.json
+│   │   ── ventas.json
 │   ├── modelos/
 │   │   ├── __init__.py
 │   │   ├── producto.py
@@ -56,19 +65,16 @@ restaurante_app_semana15/
 │   │   └── main_view.py
 │   └── main.py
 └── README.md
-```
 
-## Responsabilidades
+## Responsabilidades por capa
 
-- **`modelos/venta.py`**: representa la entidad `Venta`, relacionando un `usuario_id`, un `producto_codigo` y una `fecha`, con validación de campos obligatorios.
-- **`servicios/archivo_servicio.py`**: lee y escribe los archivos JSON (productos, usuarios y ventas), sin lógica de negocio.
-- **`servicios/restaurante_servicio.py`**: concentra las reglas de negocio, valida la existencia de usuarios y productos antes de una venta, genera el identificador de venta (`V001`, `V002`...) y gestiona la persistencia.
-- **`ui/main_view.py`**: construye las vistas con Tkinter, utiliza `command=` para asociar botones a callbacks y actualiza la interfaz tras cada operación, sin tocar los archivos JSON directamente. Carga los íconos de `assets/` y los conserva como referencia para que Tkinter no los descarte.
-- **`main.py`**: crea la ventana principal `Tk()`, configura el ícono de la aplicación desde `assets/logo/logo.png` y controla el cambio entre `LoginView` y `MainView`.
+- modelos/usuario.py: representa la entidad Usuario, incorporando el atributo rol con validación contra ROLES_PERMITIDOS.
+- servicios/restaurante_servicio.py: concentra las reglas de negocio, valida el rol del usuario autenticado, impide crear nuevos Administradores y bloquea la auto-eliminación. Gestiona la persistencia en usuarios.json.
+- ui/main_view.py: construye las vistas con Tkinter, asocia eventos mediante bind() y botones mediante command=. Coordina la interacción sin manipular directamente los archivos JSON.
+- main.py: crea la ventana principal Tk(), configura el ícono desde assets/logo/logo.png y controla el cambio entre LoginView y MainView.
 
 ## Flujo de la aplicación y manejo de eventos
 
-```text
 Inicio de la aplicación
         |
 main.py prepara Tkinter, carga el icono y los servicios
@@ -77,53 +83,58 @@ main.py prepara Tkinter, carga el icono y los servicios
         |
     MainView (menú lateral)
         |
-Navegación: Inicio | Usuarios (consulta) | Productos (CRUD) | Ventas (NUEVO)
+Navegación: Inicio | Usuarios (solo Admin) | Productos (CRUD) | Ventas
         |
---- FLUJO DE EVENTO EN VENTAS ---
-1. Usuario selecciona usuario y producto en los Combobox
-2. Usuario hace clic en el botón "Registrar venta"
-3. Componente Button activa el callback vía command=self.registrar_venta
-4. Callback obtiene selecciones y llama a RestauranteServicio.registrar_venta()
-5. Servicio valida datos, crea objeto Venta y guarda en ventas.json
-6. Callback refresca el Treeview y muestra messagebox de confirmación
+--- FLUJO DE EVENTOS EN USUARIOS (Semana 16) ---
+1. Administrador accede a la sección "Usuarios"
+2. Selecciona una fila en el Treeview
+3. Evento <<TreeviewSelect>> activa callback al_seleccionar_usuario()
+4. Callback obtiene el identificador y consulta RestauranteServicio
+5. Los datos se cargan automáticamente en el formulario
+6. El usuario modifica un campo y presiona "Actualizar" (command=)
+        |
+--- ATAJOS DE TECLADO ---
+• <Return> en el Combobox de rol → ejecuta registrar_usuario()
+• <Escape> en cualquier campo → limpia formulario y cancela selección
+        |
+--- CAMBIO DE ROL ---
+• <<ComboboxSelected>> → actualiza la etiqueta "Rol seleccionado: ..."
 ---------------------------------
         |
    Cerrar sesión
         |
    LoginView
-```
 
 ## Cómo ejecutar
 
-Ubicarse dentro de la carpeta `restaurante_app`:
+1. Ubicarse dentro de la carpeta restaurante_app:
+   cd restaurante_app
 
-```bash
-cd restaurante_app
-```
+2. Ejecutar el punto de entrada:
+   python main.py
 
-Ejecutar el punto de entrada:
+3. Iniciar sesión con el usuario administrador cargado en datos/usuarios.json:
+   - Usuario: jperez
+   - Contraseña: 1234
 
-```bash
-python main.py
-```
+4. Navegar al menú lateral "Usuarios" para probar la gestión con eventos.
 
-Iniciar sesión con el usuario de prueba cargado en `datos/usuarios.json`:
-- Usuario: `jperez`
-- Contraseña: `1234`
-
-Navegar al menú lateral "Ventas", seleccionar un usuario y un producto, y probar el registro de una nueva venta.
-Cerrar y volver a abrir la aplicación para verificar que las ventas se recuperan correctamente desde `ventas.json`.
+5. Cerrar y volver a abrir la aplicación para verificar que los usuarios se recuperan correctamente desde usuarios.json.
 
 ## Requisitos técnicos
+
 - Python 3.8 o superior
 - Tkinter (incluido con la instalación estándar de Python)
-- Pillow, solo si se desea regenerar los íconos PNG (no es necesario para ejecutar la app)
 
 ## Referencias
+
 Estructura y flujo adaptados y evolucionados de los proyectos docentes Biblioteca App:
 - Semana 13: https://github.com/kevin10lascano-sketch/Clase-Semana-13-POO.git
 - Semana 14: https://github.com/kevin10lascano-sketch/Clase-Semana-14-POO.git
 - Semana 15: https://github.com/kevin10lascano-sketch/Clase-Semana-15-POO.git
+- Semana 16: https://github.com/kevin10lascano-sketch/Clase-Semana-16-POO.git
+- Semana 16.1 (Explorador de eventos): https://github.com/kevin10lascano-sketch/Clase-Semana-16.1-POO.git
 
 ## Autor
+
 Dennis Leonardo Pacheco Álvarez — Proyecto académico de Programación Orientada a Objetos.

@@ -4,6 +4,7 @@
         "nombre": "JUAN",
         "correo": "juan@gmail.com",
         "usuario": "jperez",
-        "contrasena": "1234"
+        "contrasena": "1234",
+        "rol": "Administrador"
     }
 ]
