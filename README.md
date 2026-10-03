@@ -49,7 +49,7 @@ restaurante_app_semana16/
 │   ├── datos/
 │   │   ├── productos.json
 │   │   ├── usuarios.json
-│   │   ── ventas.json
+│   │   └── ventas.json
 │   ├── modelos/
 │   │   ├── __init__.py
 │   │   ├── producto.py
